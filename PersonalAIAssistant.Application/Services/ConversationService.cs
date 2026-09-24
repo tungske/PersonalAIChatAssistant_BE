@@ -27,6 +27,18 @@ namespace PersonalAIAssistant.Application.Services
         {
             var userId = _jwtService.GetUserId();
 
+            var cacheKey = $"conversations:user:{userId}";
+            var cached = await _redisCacheService.GetAsync<List<ConversationResponse>>(cacheKey);
+            if (cached != null)
+            {
+                return new ApiResponse<List<ConversationResponse>>
+                {
+                    Success = true,
+                    Message = "Conversations retrieved successfully (cache)",
+                    Data = cached
+                };
+            }
+
             var conversations = await _unitOfWork
                 .ConversationRepository
                 .GetAll()
@@ -35,11 +47,16 @@ namespace PersonalAIAssistant.Application.Services
                 .OrderByDescending(x => x.UpdatedAt)
                 .ToListAsync();
 
+            var response = conversations.Adapt<List<ConversationResponse>>();
+
+            // cache short lived
+            await _redisCacheService.SetAsync(cacheKey, response, TimeSpan.FromSeconds(30));
+
             return new ApiResponse<List<ConversationResponse>>
             {
                 Success = true,
                 Message = "Conversations retrieved successfully",
-                Data = conversations.Adapt<List<ConversationResponse>>()
+                Data = response
             };
         }
 
@@ -83,6 +100,10 @@ namespace PersonalAIAssistant.Application.Services
             await _unitOfWork.ConversationRepository.AddAsync(conversation);
             await _unitOfWork.SaveChangesAsync();
 
+            // invalidate cache for this user so next read is fresh
+            var convCacheKey = $"conversations:user:{userId}";
+            await _redisCacheService.RemoveAsync(convCacheKey);
+
             return new ApiResponse<ConversationResponse>
             {
                 Success = true,
@@ -101,6 +122,10 @@ namespace PersonalAIAssistant.Application.Services
                 {
                     await _unitOfWork.ConversationRepository.Remove(conversationExisted);
                     await _unitOfWork.SaveChangesAsync();
+
+                    // invalidate cache for this user
+                    var convCacheKey = $"conversations:user:{userId}";
+                    await _redisCacheService.RemoveAsync(convCacheKey);
                 }
             }
             catch (Exception e)
