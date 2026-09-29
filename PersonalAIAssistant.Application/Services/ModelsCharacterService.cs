@@ -34,6 +34,18 @@ namespace PersonalAIAssistant.Application.Services
             var userId = _jwtService.GetUserId();
             search = search?.Trim();
 
+            var cacheKey = $"models:available:user:{userId}:page:{pageIndex}:size:{pageSize}:search:{(search ?? string.Empty)}";
+            var cached = await _redisCacheService.GetAsync<List<ModelCharacterResponse>>(cacheKey);
+            if (cached != null)
+            {
+                return new ApiResponse<IEnumerable<ModelCharacterResponse>>
+                {
+                    Success = true,
+                    Message = "Model characters retrieved successfully (cache)",
+                    Data = cached
+                };
+            }
+
             var chattedCharacterIdsQuery = _unitOfWork.ConversationRepository
                 .GetAll()
                 .Where(c => c.UserId == userId)
@@ -55,6 +67,9 @@ namespace PersonalAIAssistant.Application.Services
                 .ToListAsync();
 
             var response = characters.Adapt<List<ModelCharacterResponse>>();
+
+            // cache results for short time
+            await _redisCacheService.SetAsync(cacheKey, response, TimeSpan.FromSeconds(60));
 
             return new ApiResponse<IEnumerable<ModelCharacterResponse>>
             {
@@ -82,6 +97,12 @@ namespace PersonalAIAssistant.Application.Services
             await _unitOfWork.ModelRepository.AddAsync(newCharacter);
             await _unitOfWork.SaveChangesAsync();
             var response = newCharacter.Adapt<ModelCharacterResponse>();
+
+            // invalidate first page cache for this user to reduce staleness
+            var userId = _jwtService.GetUserId();
+            var firstPageKey = $"models:available:user:{userId}:page:1:size:{10}:search:";
+            await _redisCacheService.RemoveAsync(firstPageKey);
+
             return new ApiResponse<ModelCharacterResponse>
             {
                 Success = true,
@@ -106,6 +127,12 @@ namespace PersonalAIAssistant.Application.Services
             await _unitOfWork.ModelRepository.Update(existingCharacter);
             await _unitOfWork.SaveChangesAsync();
             var response = existingCharacter.Adapt<ModelCharacterResponse>();
+
+            // invalidate first page cache for this user to reduce staleness
+            var userId = _jwtService.GetUserId();
+            var firstPageKey = $"models:available:user:{userId}:page:1:size:{10}:search:";
+            await _redisCacheService.RemoveAsync(firstPageKey);
+
             return new ApiResponse<ModelCharacterResponse>
             {
                 Success = true,
@@ -128,6 +155,12 @@ namespace PersonalAIAssistant.Application.Services
             }
             await _unitOfWork.ModelRepository.Remove(existingCharacter);
             await _unitOfWork.SaveChangesAsync();
+
+            // invalidate first page cache for this user to reduce staleness
+            var userId = _jwtService.GetUserId();
+            var firstPageKey = $"models:available:user:{userId}:page:1:size:{10}:search:";
+            await _redisCacheService.RemoveAsync(firstPageKey);
+
             return new ApiResponse<bool>
             {
                 Success = true,

@@ -102,7 +102,7 @@ namespace PersonalAIAssistant.Application.Services
                 ModelId = conversation.ModelCharacterId.ToString(),
                 ModelName = conversation.ModelsCharacter?.Name, 
                 ModelAvatarUrl = conversation.ModelsCharacter?.AvatarUrl,
-                FirstMessageId = messages.LastOrDefault()?.Id,
+                FirstMessageId = messages.FirstOrDefault()?.Id,
 
                 Messages = messages.Adapt<List<MessageResponse>>()
             };
@@ -166,6 +166,8 @@ namespace PersonalAIAssistant.Application.Services
 
                 // Call AI first before saving anything to DB
                 // If AI fails, nothing gets saved and we return error immediately
+
+                MessageResponse templateMessageResponse = null;
                 var aiReply = await _generationAIService.GenerateReply(
                     conversation,
                     character,
@@ -176,7 +178,6 @@ namespace PersonalAIAssistant.Application.Services
                 // AI succeeded — now save both messages in a single transaction
                 // If DB fails here, both user message and AI reply are rolled back together
                 Message aiMessage = null;
-
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Save user message
@@ -229,7 +230,6 @@ namespace PersonalAIAssistant.Application.Services
             }
             catch (Exception ex)
             {
-                // No manual rollback needed — ExecuteInTransactionAsync handles it internally
                 return new ApiResponse<MessageResponse>
                 {
                     Success = false,

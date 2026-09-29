@@ -51,6 +51,9 @@ namespace PersonalAIAssistant.Application.Services
 
             var response = list.Adapt<List<CharacterEmotionResponse>>();
 
+            // cache for short time
+            await _redisCacheService.SetAsync(cacheKey, response, TimeSpan.FromSeconds(60));
+
             return new ApiResponse<List<CharacterEmotionResponse>>
             {
                 Success = true,

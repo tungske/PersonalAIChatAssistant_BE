@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using PersonalAIAssistant.Domain;
 using PersonalAIAssistant.Domain.Entities;
 using PersonalAIAssistant.Application.Interfaces.Infrastructure;
+using PersonalAIAssistant.Application.DTOs.Response;
 
 namespace PersonalAIAssistant.Infrastructure.Services
 {
@@ -21,11 +22,11 @@ namespace PersonalAIAssistant.Infrastructure.Services
 
             _modelName =
                 configuration["GenerativeAI:PrimaryModel"]
-                ?? "gemini-2.5-flash";
+                ?? "gemini-3.5-flash";
 
             _fallbackModel =
                 configuration["GenerativeAI:FallbackModel"]
-                ?? "gemini-2.0-flash";
+                ?? "gemini-2.5-flash";
 
             _unitOfWork = unitOfWork;
         }
@@ -185,9 +186,11 @@ namespace PersonalAIAssistant.Infrastructure.Services
                 MaxOutputTokens = 500
             };
 
-            return await GenerateWithFallbackAsync(
+            var messageResponse = await GenerateWithFallbackAsync(
                 contents,
                 config);
+            Console.WriteLine("Message: " + messageResponse);
+            return messageResponse;
         }
 
         public async Task<string> SummarizeConversation(string? currentSummary, List<Message> recentMessages)

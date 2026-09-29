@@ -6,7 +6,8 @@ namespace PersonalAIAssistant.Application.DTOs.Response
         public int ConversationId { get; set; }
         public string role { get; set; }
         public string Content { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
-        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+        public string emotion { get; set; } = string.Empty;
+        public string emotionScore { get; set; } = string.Empty;
+        public string emotionImageUrl { get; set; } = string.Empty;
     }
 }
