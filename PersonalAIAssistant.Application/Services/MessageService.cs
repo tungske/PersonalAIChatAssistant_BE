@@ -166,8 +166,6 @@ namespace PersonalAIAssistant.Application.Services
 
                 // Call AI first before saving anything to DB
                 // If AI fails, nothing gets saved and we return error immediately
-
-                MessageResponse templateMessageResponse = null;
                 var aiReply = await _generationAIService.GenerateReply(
                     conversation,
                     character,
