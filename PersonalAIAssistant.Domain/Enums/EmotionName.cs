@@ -8,10 +8,13 @@ namespace PersonalAIAssistant.Domain.Enums
 {
     public enum EmotionName
     {
+        Neutral,
         Happy,
         Sad, 
         Angry,
         Embarasshing,
-        Surprised
+        Surprised,
+        Shocked,
+        Serious,
     }
 }

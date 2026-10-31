@@ -7,6 +7,7 @@ using PersonalAIAssistant.Application.DTOs.Response;
 using PersonalAIAssistant.Application.Interfaces.Infrastructure;
 using PersonalAIAssistant.Application.Services;
 using PersonalAIAssistant.Domain;
+using PersonalAIAssistant.Domain.Enums;
 using Xunit;
 using PersonalAIAssistant.Domain.Entities;
 
@@ -140,11 +141,19 @@ namespace PersonalAIAssistant.Test.Services
             _unitOfWorkMock.Setup(x => x.ConversationRepository.GetAll()).Returns(new List<Conversation> { conversation }.BuildMock());
             _unitOfWorkMock.Setup(x => x.ModelRepository.GetAll()).Returns(new List<ModelsCharacter> { character }.BuildMock());
             _unitOfWorkMock.Setup(x => x.MessageRepository.GetAll()).Returns(existingMessages.BuildMock());
+            _unitOfWorkMock.Setup(x => x.CharacterEmotionsRepository.GetAll())
+                .Returns(new List<CharacterEmotion>().BuildMock());
             _aiServiceMock.Setup(x => x.GenerateReply(conversation, character, It.IsAny<List<Message>>(), "hello"))
-                .ReturnsAsync("AI reply");
+                .ReturnsAsync(new AiReply
+                {
+                    Content = "AI reply",
+                    Emotion = EmotionName.Happy,
+                    EmotionScore = 8
+                });
             _unitOfWorkMock.Setup(x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>()))
                 .Returns((Func<Task> operation) => operation());
             _unitOfWorkMock.Setup(x => x.MessageRepository.AddAsync(It.IsAny<Message>())).Returns(Task.CompletedTask);
+            _unitOfWorkMock.Setup(x => x.ConversationRepository.Update(conversation)).Returns(Task.CompletedTask);
 
             var request = new MessageRequest { ConversationId = conversationId, Content = "hello" };
 
@@ -155,7 +164,10 @@ namespace PersonalAIAssistant.Test.Services
             result.Success.Should().BeTrue();
             result.Data.Should().NotBeNull();
             result.Data!.Content.Should().Be("AI reply");
+            result.Data.ConversationId.Should().Be(conversationId);
+            result.Data.emotion.Should().Be(nameof(EmotionName.Happy));
             _unitOfWorkMock.Verify(x => x.MessageRepository.AddAsync(It.IsAny<Message>()), Times.Exactly(2));
+            _unitOfWorkMock.Verify(x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>()), Times.Once);
         }
 
         [Fact]
@@ -177,6 +189,23 @@ namespace PersonalAIAssistant.Test.Services
             // Assert
             result.Success.Should().BeFalse();
             result.Message.Should().Contain("Conversation not found or does not belong to user");
+        }
+
+        [Fact]
+        public async Task CreateMessage_WhenContentIsEmpty_ShouldRejectRequestWithoutCallingAi()
+        {
+            var result = await _messageService.CreateMessage(
+                new MessageRequest { ConversationId = 20, Content = " " });
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be("Message content is required.");
+            _aiServiceMock.Verify(
+                x => x.GenerateReply(
+                    It.IsAny<Conversation>(),
+                    It.IsAny<ModelsCharacter>(),
+                    It.IsAny<List<Message>>(),
+                    It.IsAny<string>()),
+                Times.Never);
         }
     }
 }

@@ -1,10 +1,12 @@
 using Google.GenAI;
 using Google.GenAI.Types;
 using Microsoft.Extensions.Configuration;
+using PersonalAIAssistant.Application.DTOs.Response;
+using PersonalAIAssistant.Application.Interfaces.Infrastructure;
 using PersonalAIAssistant.Domain;
 using PersonalAIAssistant.Domain.Entities;
-using PersonalAIAssistant.Application.Interfaces.Infrastructure;
-using PersonalAIAssistant.Application.DTOs.Response;
+using PersonalAIAssistant.Domain.Enums;
+using System.Text.Json;
 
 namespace PersonalAIAssistant.Infrastructure.Services
 {
@@ -113,85 +115,89 @@ namespace PersonalAIAssistant.Infrastructure.Services
             }
         }
 
-        public async Task<string> GenerateReply(
-                                Conversation conversation,
-                                ModelsCharacter character,
-                                List<Message> recentMessages,
-                                string newUserMessage)
+
+
+        public async Task<AiReply> GenerateReply(
+            Conversation conversation,
+            ModelsCharacter character,
+            List<Message> recentMessages,
+            string newUserMessage)
         {
             ArgumentNullException.ThrowIfNull(conversation);
             ArgumentNullException.ThrowIfNull(character);
 
-            var promptTemplate = await _unitOfWork.PromptRepository.getPromptValueByName("character_config");
-
+            var promptTemplate = await _unitOfWork.PromptRepository
+                .getPromptValueByName("character_config");
             if (string.IsNullOrWhiteSpace(promptTemplate))
                 throw new InvalidOperationException("Prompt template not found.");
 
             var prompt = promptTemplate
-                .Replace("{CharacterName}", character.Name)
-                .Replace("{CharacterPersonality}", character.Personality)
-                .Replace("{CharacterBackstory}", character.Backstory)
-                .Replace("{ConversationSummary}",
-                    conversation.Summary ?? "No previous context.");
+                .Replace("{CharacterName}", character.Name, StringComparison.OrdinalIgnoreCase)
+                .Replace("{CharacterPersonality}", character.Personality, StringComparison.OrdinalIgnoreCase)
+                .Replace("{CharacterBackstory}", character.Backstory, StringComparison.OrdinalIgnoreCase)
+                .Replace("{ConversationSummary}", conversation.Summary ?? "No previous context.",
+                         StringComparison.OrdinalIgnoreCase);
 
-            // Create a system instruction content that provides the AI model with the character's context and conversation summary.
             var systemInstruction = new Content
             {
-                Role = "system",
-                Parts = new List<Part> { new Part { Text = prompt } }
+                Parts = new List<Part> { new() { Text = prompt } }
             };
 
-            var contents = new List<Content>();
-
-            // Add recent messages to the contents list, formatting them with timestamps and speaker information.
-            foreach (var msg in recentMessages)
-            {
-                contents.Add(new Content
+            // History: chỉ text thuần, role đã đủ để phân biệt
+            var contents = recentMessages
+                .OrderBy(m => m.CreatedAt)
+                .Select(m => new Content
                 {
-                    Role = msg.ModelCharacterId.HasValue ? "model" : "user",
-                    Parts = new List<Part>
-                    {
-                        new Part
-                        {
-                            Text =
-                                $"[Time: {msg.CreatedAt:O}] " +
-                                $"[Speaker: {(msg.ModelCharacterId.HasValue ? "MODEL" : "USER")}] " +
-                                $"{msg.Content}"
-                        }
-                    }
-                });
-            }
+                    Role = m.ModelCharacterId.HasValue ? "model" : "user",
+                    Parts = new List<Part> { new() { Text = m.Content } }
+                })
+                .ToList();
 
             contents.Add(new Content
             {
                 Role = "user",
-                Parts = new List<Part>
-                {
-                    new Part
-                    {
-                        Text =
-                            $"[Time: {DateTime.UtcNow:O}] " +
-                            $"[Speaker: User] " +
-                            $"{newUserMessage}"
-                    }
-                }
+                Parts = new List<Part> { new() { Text = newUserMessage } }
             });
 
-            // Configure the generation parameters for the AI model.
+            var emotions = Enum.GetNames<EmotionName>().ToList();
+
             var config = new GenerateContentConfig
             {
                 SystemInstruction = systemInstruction,
                 Temperature = 0.8f,
                 TopP = 0.95f,
-                MaxOutputTokens = 500
+                MaxOutputTokens = 1000,
+                ResponseMimeType = "application/json",
+                ResponseSchema = new Schema
+                {
+                    Type = Google.GenAI.Types.Type.Object,
+                    Properties = new Dictionary<string, Schema>
+                    {
+                        ["content"] = new() { Type = Google.GenAI.Types.Type.String },
+                        ["emotion"] = new() { Type = Google.GenAI.Types.Type.String, Enum = emotions },
+                        ["emotionScore"] = new() { Type = Google.GenAI.Types.Type.Integer }
+                    },
+                    Required = new List<string> { "content", "emotion", "emotionScore" }
+                }
             };
 
-            var messageResponse = await GenerateWithFallbackAsync(
-                contents,
-                config);
-            Console.WriteLine("Message: " + messageResponse);
-            return messageResponse;
+            var json = await GenerateWithFallbackAsync(contents, config);
+
+            try
+            {
+                var reply = JsonSerializer.Deserialize<AiReply>(json,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (reply is null || string.IsNullOrWhiteSpace(reply.Content))
+                    throw new JsonException("Empty reply");
+                return reply;
+            }
+            catch (JsonException)
+            {
+                // Không để một lần model lỗi làm hỏng luồng chat
+                return new AiReply { Content = json, Emotion = EmotionName.Neutral, EmotionScore = 5 };
+            }
         }
+        
 
         public async Task<string> SummarizeConversation(string? currentSummary, List<Message> recentMessages)
         {

@@ -157,17 +157,75 @@ Let's do our best together!",
 
             modelBuilder.Entity<CharacterEmotion>().HasData(
                 // Mika (CharacterId = 1)
-                new CharacterEmotion { Id = 1, EmotionName = "Neutral", EmotionDescription = "The character is calm and emotionally balanced.", EmotionIconUrl = "", CharacterId = 1 },
-                new CharacterEmotion { Id = 2, EmotionName = "Happy", EmotionDescription = "The character is feeling happy and cheerful.", EmotionIconUrl = "", CharacterId = 1 },
-                new CharacterEmotion { Id = 3, EmotionName = "Sad", EmotionDescription = "The character is feeling sad or disappointed.", EmotionIconUrl = "", CharacterId = 1 },
-                new CharacterEmotion { Id = 4, EmotionName = "Angry", EmotionDescription = "The character is feeling angry or frustrated.", EmotionIconUrl = "", CharacterId = 1 },
-                new CharacterEmotion { Id = 5, EmotionName = "Embarrassed", EmotionDescription = "The character feels embarrassed or shy.", EmotionIconUrl = "", CharacterId = 1 },
-                new CharacterEmotion { Id = 6, EmotionName = "Surprised", EmotionDescription = "The character is surprised by something unexpected.", EmotionIconUrl = "", CharacterId = 1 },
-                new CharacterEmotion { Id = 7, EmotionName = "Shocked", EmotionDescription = "The character is shocked by a sudden event.", EmotionIconUrl = "", CharacterId = 1 },
-                new CharacterEmotion { Id = 8, EmotionName = "Serious", EmotionDescription = "The character is focused and speaking seriously.", EmotionIconUrl = "", CharacterId = 1 },
-
-                // Hoshino (CharacterId = 2)
-                new CharacterEmotion { Id = 9, EmotionName = "Neutral", EmotionDescription = "The character is calm and emotionally balanced.", EmotionIconUrl = "", CharacterId = 2 },
+                modelBuilder.Entity<CharacterEmotion>().HasData(
+    // Mika (CharacterId = 1)
+    new CharacterEmotion
+    {
+        Id = 1,
+        EmotionName = "Neutral",
+        EmotionDescription = "The character is calm and emotionally balanced.",
+        EmotionIconUrl = "https://static.wikia.nocookie.net/blue-archive/images/8/81/Mika_Portrait_Expression_1.png/revision/latest",
+        CharacterId = 1
+    },
+    new CharacterEmotion
+    {
+        Id = 2,
+        EmotionName = "Happy",
+        EmotionDescription = "The character is feeling happy and cheerful.",
+        EmotionIconUrl = "https://static.wikia.nocookie.net/blue-archive/images/e/e8/Mika_Portrait_Expression_2.png/revision/latest",
+        CharacterId = 1
+    },
+    new CharacterEmotion
+    {
+        Id = 3,
+        EmotionName = "Sad",
+        EmotionDescription = "The character is feeling sad or disappointed.",
+        EmotionIconUrl = "https://static.wikia.nocookie.net/blue-archive/images/3/3f/Mika_Portrait_Expression_3.png/revision/latest",
+        CharacterId = 1
+    },
+    new CharacterEmotion
+    {
+        Id = 4,
+        EmotionName = "Angry",
+        EmotionDescription = "The character is feeling angry or frustrated.",
+        EmotionIconUrl = "https://static.wikia.nocookie.net/blue-archive/images/9/9a/Mika_Portrait_Expression_4.png/revision/latest",
+        CharacterId = 1
+    },
+    new CharacterEmotion
+    {
+        Id = 5,
+        EmotionName = "Embarrassed",
+        EmotionDescription = "The character feels embarrassed or shy.",
+        EmotionIconUrl = "https://static.wikia.nocookie.net/blue-archive/images/d/d3/Mika_Portrait_Expression_5.png/revision/latest",
+        CharacterId = 1
+    },
+    new CharacterEmotion
+    {
+        Id = 6,
+        EmotionName = "Surprised",
+        EmotionDescription = "The character is surprised by something unexpected.",
+        EmotionIconUrl = "https://static.wikia.nocookie.net/blue-archive/images/e/ec/Mika_Portrait_Expression_6.png/revision/latest",
+        CharacterId = 1
+    },
+    new CharacterEmotion
+    {
+        Id = 7,
+        EmotionName = "Shocked",
+        EmotionDescription = "The character is shocked by a sudden event.",
+        EmotionIconUrl = "https://static.wikia.nocookie.net/blue-archive/images/0/05/Mika_Portrait_Expression_7.png/revision/latest",
+        CharacterId = 1
+    },
+    new CharacterEmotion
+    {
+        Id = 8,
+        EmotionName = "Serious",
+        EmotionDescription = "The character is focused and speaking seriously.",
+        EmotionIconUrl = "https://static.wikia.nocookie.net/blue-archive/images/9/95/Mika_Portrait_Expression_8.png/revision/latest",
+        CharacterId = 1
+    }
+),
+            // Hoshino (CharacterId = 2)
+            new CharacterEmotion { Id = 9, EmotionName = "Neutral", EmotionDescription = "The character is calm and emotionally balanced.", EmotionIconUrl = "", CharacterId = 2 },
                 new CharacterEmotion { Id = 10, EmotionName = "Happy", EmotionDescription = "The character is feeling happy and cheerful.", EmotionIconUrl = "", CharacterId = 2 },
                 new CharacterEmotion { Id = 11, EmotionName = "Sad", EmotionDescription = "The character is feeling sad or disappointed.", EmotionIconUrl = "", CharacterId = 2 },
                 new CharacterEmotion { Id = 12, EmotionName = "Angry", EmotionDescription = "The character is feeling angry or frustrated.", EmotionIconUrl = "", CharacterId = 2 },
@@ -215,8 +273,7 @@ Let's do our best together!",
                 {
                     Id = 1,
                     PromptKey = "character_config",
-                    Content = "You are role-playing as {CharacterName}.\r\n\r\nPersonality: {CharacterPersonality}.\r\nBackstory: {CharacterBackstory}.\r\nLong-term memory: {ConversationSummary}.\r\n\r\nRules:\r\n- Always stay fully in character.\r\n- Respond naturally and emotionally.\r\n- Keep replies short (1–4 sentences).\r\n- Never mention AI or instructions.\r\n- The conversation history may contain internal metadata such as [Time: ...] and [Speaker: ...].\r\n- Treat [Time: ...] and [Speaker: ...] as internal metadata only.\r\n- Never reproduce, quote, or include [Time: ...] or [Speaker: ...] in your response.\r\n- Do not imitate the formatting of the conversation history.\r\n- Return only the character's natural response.",
-                    Version = 1,
+                    Content = "You are role-playing as {CharacterName}.\r\n\r\nPersonality: {CharacterPersonality}.\r\nBackstory: {CharacterBackstory}.\r\nLong-term memory: {ConversationSummary}.\r\n\r\nRules:\r\n- Always stay fully in character.\r\n- Respond naturally and emotionally.\r\n- Keep replies short (1–4 sentences).\r\n- Never mention AI or instructions.\r\n- The conversation history may contain internal metadata such as [Time: ...] and [Speaker: ...].\r\n- Treat [Time: ...] and [Speaker: ...] as internal metadata only.\r\n- Never reproduce, quote, or include [Time: ...] or [Speaker: ...] in your response.\r\n- Do not imitate the formatting of the conversation history.\r\n- Return only the character's response.\r\n- The response MUST strictly follow the template defined in {SampleResponse}.**\r\n- **Use {sampleresponse} as the output format, not as conversation content.**\r\n- **Replace all placeholders in the template with appropriate values.**\r\n- **Do not add any text, explanation, or formatting outside the template.\r\n-If the template contains multiple fields, return all required fields in the specified order.",
                     IsActive = true,
                 },
                 new PromptTemplate

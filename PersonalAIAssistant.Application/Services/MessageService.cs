@@ -5,8 +5,8 @@ using PersonalAIAssistant.Application.DTOs.Response;
 using PersonalAIAssistant.Application.Interfaces.Services;
 using PersonalAIAssistant.Domain;
 using PersonalAIAssistant.Domain.Base;
-using PersonalAIAssistant.Domain.Entities;
 using PersonalAIAssistant.Application.Interfaces.Infrastructure;
+using PersonalAIAssistant.Domain.Entities;
 
 namespace PersonalAIAssistant.Application.Services
 {
@@ -100,7 +100,7 @@ namespace PersonalAIAssistant.Application.Services
             var response = new MessageListResponse
             {
                 ModelId = conversation.ModelCharacterId.ToString(),
-                ModelName = conversation.ModelsCharacter?.Name, 
+                ModelName = conversation.ModelsCharacter?.Name,
                 ModelAvatarUrl = conversation.ModelsCharacter?.AvatarUrl,
                 FirstMessageId = messages.FirstOrDefault()?.Id,
 
@@ -133,7 +133,16 @@ namespace PersonalAIAssistant.Application.Services
         {
             try
             {
-                var userId =  _jwtService.GetUserId();
+                if (request == null || string.IsNullOrWhiteSpace(request.Content))
+                {
+                    return new ApiResponse<MessageResponse>
+                    {
+                        Success = false,
+                        Message = "Message content is required."
+                    };
+                }
+
+                var userId = _jwtService.GetUserId();
 
                 // Validate conversation exists and belongs to current user
                 var conversation = await _unitOfWork.ConversationRepository
@@ -164,8 +173,6 @@ namespace PersonalAIAssistant.Application.Services
                     .OrderBy(x => x.Id)
                     .ToListAsync();
 
-                // Call AI first before saving anything to DB
-                // If AI fails, nothing gets saved and we return error immediately
                 var aiReply = await _generationAIService.GenerateReply(
                     conversation,
                     character,
@@ -173,57 +180,80 @@ namespace PersonalAIAssistant.Application.Services
                     request.Content
                 );
 
-                // AI succeeded — now save both messages in a single transaction
-                // If DB fails here, both user message and AI reply are rolled back together
-                Message aiMessage = null;
+                if (aiReply == null || string.IsNullOrWhiteSpace(aiReply.Content))
+                {
+                    throw new InvalidOperationException("The AI service returned an empty reply.");
+                }
+
+                // Save both user and AI messages to the database
+                var now = DateTime.UtcNow;
+                var userMessage = new Message
+                {
+                    ConversationId = conversation.Id,
+                    UserId = userId,
+                    Content = request.Content,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                var aiMessage = new Message
+                {
+                    ConversationId = conversation.Id,
+                    ModelCharacterId = character.Id,
+                    Content = aiReply.Content,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+
+                // Get the emotion details for the AI reply
+                var emotion = await _unitOfWork.CharacterEmotionsRepository
+                    .GetAll()
+                    .FirstOrDefaultAsync(x =>
+                        x.CharacterId == character.Id &&
+                        x.EmotionName.ToLower() == aiReply.Emotion.ToString().ToLower());
+
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
-                    // Save user message
-                    var userMessage = new Message
-                    {
-                        ConversationId = conversation.Id,
-                        UserId = userId,
-                        Content = request.Content,
-                        CreatedAt = DateTime.Now
-                    };
-
                     await _unitOfWork.MessageRepository.AddAsync(userMessage);
-
-                    // Save AI reply
-                    aiMessage = new Message
-                    {
-                        ConversationId = conversation.Id,
-                        ModelCharacterId = character.Id,
-                        Content = aiReply,
-                        CreatedAt = DateTime.Now
-                    };
-
                     await _unitOfWork.MessageRepository.AddAsync(aiMessage);
 
-                    conversation.UpdatedAt = DateTime.Now;
+                    conversation.UpdatedAt = now;
+                    await _unitOfWork.ConversationRepository.Update(conversation);
 
-                    // Every 20 messages, summarize the conversation to keep context window short
+                    // Update conversation summary every 20 messages
                     var messageCount = await _unitOfWork.MessageRepository
                         .GetAll()
                         .CountAsync(x => x.ConversationId == conversation.Id);
 
-                    if (messageCount % 20 == 0)
+                    if ((messageCount + 2) % 20 == 0)
                     {
-                        var newSummary = await _generationAIService.SummarizeConversation(
+                        var messagesToSummarize = recentMessages
+                            .Concat(new[] { userMessage, aiMessage })
+                            .ToList();
+                        conversation.Summary = await _generationAIService.SummarizeConversation(
                             conversation.Summary,
-                            recentMessages
-                        );
-
-                        conversation.Summary = newSummary;
+                            messagesToSummarize);
                         await _unitOfWork.ConversationRepository.Update(conversation);
                     }
                 });
+
+                var response = new MessageResponse
+                {
+                    Id = aiMessage.Id,
+                    ConversationId = conversation.Id,
+                    Role = 1,
+                    Content = aiMessage.Content,
+                    emotion = aiReply.Emotion.ToString(),
+                    emotionScore = aiReply.EmotionScore.ToString(),
+                    emotionImageUrl = emotion?.EmotionIconUrl ?? string.Empty,
+                    CreatedAt = aiMessage.CreatedAt,
+                    UpdatedAt = aiMessage.UpdatedAt
+                };
 
                 return new ApiResponse<MessageResponse>
                 {
                     Success = true,
                     Message = "Send message successfully!",
-                    Data = aiMessage.Adapt<MessageResponse>()
+                    Data = response
                 };
             }
             catch (Exception ex)

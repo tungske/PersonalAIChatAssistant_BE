@@ -9,7 +9,7 @@ namespace PersonalAIAssistant.Application.Mappings
         public void Register(TypeAdapterConfig config)
         {
             config.NewConfig<Message, MessageResponse>()
-                  .Map(dest => dest.role, src => src.UserId == null ? "AI" : "User");
+                  .Map(dest => dest.Role, src => src.UserId == null ? "AI" : "User");
 
             config.NewConfig<Conversation, ConversationResponse>()
                 .Map(dest => dest.AvatarUrl, src => src.ModelsCharacter.AvatarUrl ?? string.Empty);
